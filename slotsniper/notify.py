@@ -3,6 +3,8 @@ from __future__ import annotations
 
 import logging
 import os
+import time
+from collections import deque
 
 import httpx
 
@@ -18,6 +20,7 @@ class Notifier:
         self.tg_chat = os.environ.get(cfg.telegram_chat_id_env)
         self.discord = os.environ.get(cfg.discord_webhook_env)
         self.http = httpx.AsyncClient(timeout=15)
+        self.history: deque[dict] = deque(maxlen=200)  # what the dashboard's alert feed shows
 
     @property
     def channels(self) -> list[str]:
@@ -25,6 +28,7 @@ class Notifier:
                                 ("discord", self.discord)] if on]
 
     async def send(self, text: str, image: bytes | None = None) -> None:
+        self.history.append({"time": time.time(), "text": text})
         if self.console:
             print(f"\n🔔 {text}\n", flush=True)
         if self.tg_token and self.tg_chat:

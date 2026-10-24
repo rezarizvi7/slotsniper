@@ -51,16 +51,18 @@ async def book(page: Page, slot: Slot, act: ActionCfg, ex: ExtractorCfg) -> Book
         if not await button.is_enabled():
             return BookResult(False, "book control is disabled (someone beat us to it?)")
         if act.dry_run:
-            return BookResult(True, f"DRY RUN: would click {found[0]!r}", await page.screenshot())
+            text = " ".join((await button.inner_text()).split()) or "book"
+            return BookResult(True, f"Practice mode: would have clicked “{text}” for {slot.label}", await page.screenshot())
         await button.click()
     else:
         if not slot.click_xy:
             return BookResult(False, "vision model found no book control for this slot")
         if act.dry_run:
-            return BookResult(True, f"DRY RUN: would click at {tuple(round(v) for v in slot.click_xy)}",
+            return BookResult(True, f"Practice mode: would have clicked the book button for {slot.label}",
                               await page.screenshot())
         await page.mouse.click(*slot.click_xy)
 
     ok = await _confirmed(page, act.confirm_text)
-    return BookResult(ok, "portal confirmed the booking" if ok else "clicked, but saw no confirmation text",
+    return BookResult(ok, "Booked! The site confirmed it." if ok else
+                      "Clicked book, but the site didn't show a confirmation. Check it yourself.",
                       await page.screenshot())

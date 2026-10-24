@@ -1,5 +1,6 @@
-# Copy to config.yaml and edit. Secrets come from env vars, never this file:
-#   TELEGRAM_BOT_TOKEN, TELEGRAM_CHAT_ID, DISCORD_WEBHOOK_URL, ANTHROPIC_API_KEY
+# Copy to config.yaml and edit (start.bat / start.command do the copy for you).
+# Most of this can be changed from the dashboard's Settings button instead.
+# Keys and tokens go in .env (see .env.example), never in this file.
 
 browser:
   channel: msedge        # msedge | chrome | null (bundled Chromium)
@@ -23,7 +24,7 @@ targets:
     label_matches: "(?i)washer"
     action:
       kind: book
-      dry_run: false
+      dry_run: true      # practice mode: flip to false (or untick it in the dashboard) to really book
       max_bookings: 1
 
   # A real-world style example: a gym slot page behind campus SSO.

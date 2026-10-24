@@ -1,0 +1,347 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>slotsniper</title>
+<link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'><circle cx='16' cy='16' r='11' fill='none' stroke='%2316a34a' stroke-width='3'/><circle cx='16' cy='16' r='3.5' fill='%2316a34a'/></svg>">
+<style>
+  :root {
+    --bg: #f6f7f9; --panel: #ffffff; --panel-2: #f1f3f6; --border: #e3e6eb;
+    --text: #15181d; --muted: #5f6774; --faint: #8a919c;
+    --accent: #16a34a; --accent-ink: #ffffff; --accent-soft: #dcfce7; --accent-text: #15803d;
+    --warn: #b45309; --warn-soft: #fef3c7; --danger: #dc2626; --danger-soft: #fee2e2;
+    --info: #2563eb; --info-soft: #dbeafe; --taken: #e8ebef; --taken-text: #6b7280;
+    --shadow: 0 1px 2px rgba(16, 24, 40, .05), 0 1px 3px rgba(16, 24, 40, .06);
+    --radius: 12px;
+  }
+  @media (prefers-color-scheme: dark) {
+    :root {
+      --bg: #0e1013; --panel: #161a1f; --panel-2: #1d2228; --border: #2a3038;
+      --text: #e8ebef; --muted: #a0a8b4; --faint: #737c88;
+      --accent: #22c55e; --accent-ink: #052e12; --accent-soft: #0f2e1a; --accent-text: #4ade80;
+      --warn: #fbbf24; --warn-soft: #332508; --danger: #f87171; --danger-soft: #3a1414;
+      --info: #60a5fa; --info-soft: #132440; --taken: #22272e; --taken-text: #8a929e;
+      --shadow: none;
+    }
+  }
+  * { box-sizing: border-box; }
+  body { margin: 0; background: var(--bg); color: var(--text);
+    font: 14px/1.45 ui-sans-serif, system-ui, -apple-system, "Segoe UI", Roboto, sans-serif; }
+  button, input, select { font: inherit; color: inherit; }
+  a { color: var(--info); }
+
+  header { display: flex; align-items: center; justify-content: space-between; gap: 16px; flex-wrap: wrap;
+    padding: 14px 24px; border-bottom: 1px solid var(--border); background: var(--panel); }
+  .brand { display: flex; align-items: center; gap: 10px; }
+  .brand h1 { font-size: 17px; margin: 0; letter-spacing: -.01em; }
+  .brand p { margin: 0; color: var(--muted); font-size: 12.5px; }
+  .chips { display: flex; gap: 6px; flex-wrap: wrap; align-items: center; }
+  .chip { font-size: 12px; padding: 3px 9px; border-radius: 999px; background: var(--panel-2);
+    color: var(--muted); border: 1px solid var(--border); white-space: nowrap; }
+  .chip.on { background: var(--accent-soft); color: var(--accent-text); border-color: transparent; }
+
+  main { display: grid; grid-template-columns: minmax(0, 1fr) 340px; gap: 20px; padding: 20px 24px;
+    max-width: 1280px; margin: 0 auto; }
+  @media (max-width: 900px) { main { grid-template-columns: minmax(0, 1fr); padding: 16px; } header { padding: 12px 16px; } }
+
+  .stack { display: flex; flex-direction: column; gap: 16px; min-width: 0; }
+  .panel { background: var(--panel); border: 1px solid var(--border); border-radius: var(--radius); box-shadow: var(--shadow); }
+  .card { padding: 18px; }
+  .card-top { display: flex; justify-content: space-between; gap: 12px; flex-wrap: wrap; align-items: flex-start; }
+  .card h2 { font-size: 16px; margin: 0 0 2px; display: flex; gap: 8px; align-items: center; flex-wrap: wrap; }
+  .url { color: var(--muted); font-size: 12.5px; word-break: break-all; text-decoration: none; }
+  .url:hover { text-decoration: underline; }
+  .actions { display: flex; gap: 8px; flex-wrap: wrap; }
+
+  .btn { border: 1px solid var(--border); background: var(--panel); padding: 7px 13px; border-radius: 8px;
+    cursor: pointer; font-weight: 500; }
+  .btn:hover { background: var(--panel-2); }
+  .btn:disabled { opacity: .5; cursor: default; }
+  .btn.primary { background: var(--accent); border-color: var(--accent); color: var(--accent-ink); }
+  .btn.primary:hover { filter: brightness(1.05); }
+  .btn.stop { color: var(--danger); }
+
+  .pill { font-size: 11.5px; font-weight: 600; padding: 2px 8px; border-radius: 999px; text-transform: capitalize;
+    display: inline-flex; align-items: center; gap: 5px; }
+  .pill::before { content: ""; width: 6px; height: 6px; border-radius: 50%; background: currentColor; }
+  .pill.watching { background: var(--accent-soft); color: var(--accent-text); }
+  .pill.watching::before { animation: pulse 1.6s ease-in-out infinite; }
+  .pill.starting { background: var(--info-soft); color: var(--info); }
+  .pill.stopped { background: var(--panel-2); color: var(--muted); }
+  .pill.error, .pill.login-needed { background: var(--danger-soft); color: var(--danger); }
+  @keyframes pulse { 50% { opacity: .25; } }
+
+  .meta { display: flex; gap: 14px; flex-wrap: wrap; color: var(--muted); font-size: 12.5px; margin: 12px 0 0; }
+  .mode { font-weight: 600; }
+  .mode.live { color: var(--danger); }
+  .mode.practice { color: var(--warn); }
+
+  .banner { margin-top: 12px; padding: 9px 12px; border-radius: 8px; font-size: 13px; }
+  .banner.error { background: var(--danger-soft); color: var(--danger); }
+  .banner.warn { background: var(--warn-soft); color: var(--warn); }
+  .banner.info { background: var(--info-soft); color: var(--info); display: flex; align-items: center; flex-wrap: wrap; gap: 4px; }
+  .banner[hidden] { display: none; }
+  .pill.logging-in { background: var(--info-soft); color: var(--info); }
+
+  .slots { display: grid; grid-template-columns: repeat(auto-fill, minmax(150px, 1fr)); gap: 10px; margin-top: 14px; }
+  .slot { border-radius: 10px; padding: 11px 12px; background: var(--taken); color: var(--taken-text);
+    border: 1px solid transparent; transition: background .3s, color .3s; }
+  .slot b { display: block; color: var(--text); font-size: 13.5px; margin-bottom: 2px; }
+  .slot span { font-size: 12px; }
+  .slot.open { background: var(--accent-soft); color: var(--accent-text); border-color: var(--accent); }
+  .slot.booked { background: var(--info-soft); color: var(--info); border-color: var(--info); }
+  .empty { color: var(--faint); font-size: 13px; padding: 18px 0 4px; }
+
+  details { margin-top: 14px; }
+  summary { cursor: pointer; color: var(--muted); font-size: 12.5px; user-select: none; }
+  details img { margin-top: 10px; width: 100%; border-radius: 8px; border: 1px solid var(--border); display: block; }
+
+  .feed { padding: 16px; position: sticky; top: 16px; max-height: calc(100vh - 110px); display: flex; flex-direction: column; }
+  .feed h3 { margin: 0 0 10px; font-size: 14px; display: flex; justify-content: space-between; align-items: center; }
+  .feed ol { list-style: none; margin: 0; padding: 0; overflow-y: auto; display: flex; flex-direction: column; gap: 8px; }
+  .feed li { background: var(--panel-2); border-radius: 8px; padding: 9px 11px; font-size: 12.5px; white-space: pre-wrap;
+    word-break: break-word; }
+  .feed time { display: block; color: var(--faint); font-size: 11px; margin-bottom: 2px; }
+  @media (max-width: 900px) { .feed { position: static; max-height: 420px; } }
+
+  dialog { border: 1px solid var(--border); border-radius: var(--radius); background: var(--panel); color: var(--text);
+    padding: 0; width: min(460px, calc(100vw - 32px)); }
+  dialog::backdrop { background: rgba(0, 0, 0, .45); }
+  dialog form { padding: 20px; display: flex; flex-direction: column; gap: 14px; }
+  dialog h3 { margin: 0; font-size: 16px; }
+  label.field { display: flex; flex-direction: column; gap: 5px; font-size: 13px; font-weight: 500; }
+  label.field small { color: var(--muted); font-weight: 400; }
+  input[type=text], input[type=number], input[type=url] { padding: 8px 10px; border: 1px solid var(--border);
+    border-radius: 8px; background: var(--bg); width: 100%; }
+  .radios { display: flex; gap: 8px; }
+  .radios label { flex: 1; border: 1px solid var(--border); border-radius: 8px; padding: 9px 10px; cursor: pointer; font-size: 13px; }
+  .radios label:has(input:checked) { border-color: var(--accent); background: var(--accent-soft); }
+  .check { display: flex; gap: 8px; align-items: center; font-size: 13px; }
+  .dialog-actions { display: flex; justify-content: flex-end; gap: 8px; }
+  .form-error { color: var(--danger); font-size: 13px; min-height: 1em; }
+</style>
+</head>
+<body>
+<header>
+  <div class="brand">
+    <svg width="28" height="28" viewBox="0 0 32 32" aria-hidden="true"><circle cx="16" cy="16" r="11" fill="none" stroke="var(--accent)" stroke-width="3"/><circle cx="16" cy="16" r="3.5" fill="var(--accent)"/><path d="M16 1v6M16 25v6M1 16h6M25 16h6" stroke="var(--accent)" stroke-width="2.5" stroke-linecap="round"/></svg>
+    <div><h1>slotsniper</h1><p>Watches portals and grabs a slot the second it opens</p></div>
+  </div>
+  <div class="chips">
+    <span id="chips"></span>
+    <button class="btn" id="test-alert">Send test alert</button>
+  </div>
+</header>
+
+<main>
+  <section class="stack" id="targets"><div class="panel card empty">Loading…</div></section>
+  <aside class="panel feed">
+    <h3>Alerts <span class="chip" id="alert-count">0</span></h3>
+    <ol id="alerts"></ol>
+    <div class="empty" id="alerts-empty">No alerts yet. When a slot opens, it shows up here and on your phone.</div>
+  </aside>
+</main>
+
+<dialog id="settings">
+  <form method="dialog" id="settings-form">
+    <h3 id="settings-title">Settings</h3>
+    <label class="field">Page to watch <input type="url" name="url" required></label>
+    <label class="field">Check every (seconds) <small>Keep this at 30+ on real school sites, so you don't overload them.</small>
+      <input type="number" name="every_seconds" min="1" step="1" required></label>
+    <label class="field">Only these slots (optional) <small>Text to match, e.g. <code>washer</code> or <code>mon|wed</code>. Blank means all.</small>
+      <input type="text" name="label_matches" placeholder="(?i)washer"></label>
+    <div class="field" style="display:flex;flex-direction:column;gap:6px;font-size:13px;font-weight:500">When a slot opens
+      <div class="radios">
+        <label><input type="radio" name="on_open" value="notify"> Just alert me</label>
+        <label><input type="radio" name="on_open" value="book"> Book it for me</label>
+      </div>
+    </div>
+    <label class="check"><input type="checkbox" name="dry_run"> Practice mode (pretend to book, don't really click)</label>
+    <label class="field">Most bookings to make <input type="number" name="max_bookings" min="1" step="1"></label>
+    <div class="banner warn" id="live-warning" hidden>Live mode will really reserve slots for you.</div>
+    <div class="form-error" id="form-error"></div>
+    <div class="dialog-actions">
+      <button class="btn" value="cancel" formnovalidate>Cancel</button>
+      <button class="btn primary" id="save" value="save">Save</button>
+    </div>
+  </form>
+</dialog>
+
+<script>
+const $ = (s, el = document) => el.querySelector(s);
+const esc = (s) => String(s ?? "").replace(/[&<>"']/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" }[c]));
+const ago = (t) => {
+  if (!t) return "never";
+  const s = Math.max(0, Math.round(Date.now() / 1000 - t));
+  return s < 60 ? `${s}s ago` : s < 3600 ? `${Math.floor(s / 60)}m ago` : `${Math.floor(s / 3600)}h ago`;
+};
+const clock = (t) => new Date(t * 1000).toLocaleTimeString([], { hour: "numeric", minute: "2-digit", second: "2-digit" });
+const post = (url, body) => fetch(url, { method: "POST", headers: { "Content-Type": "application/json" },
+  body: body ? JSON.stringify(body) : undefined });
+
+let latest = null;
+const cards = new Map();
+
+function modeOf(s) {
+  if (s.action !== "book") return ["Alerts only", ""];
+  return s.dry_run ? ["Auto-book · practice", "practice"] : ["Auto-book · LIVE", "live"];
+}
+
+function makeCard(t) {
+  const el = document.createElement("article");
+  el.className = "panel card";
+  el.innerHTML = `
+    <div class="card-top">
+      <div><h2><span class="name"></span><span class="pill"></span></h2><a class="url" target="_blank" rel="noopener"></a></div>
+      <div class="actions">
+        <button class="btn primary toggle"></button>
+        <button class="btn check">Check now</button>
+        <button class="btn login">Log in</button>
+        <button class="btn edit">Settings</button>
+      </div>
+    </div>
+    <div class="meta"></div>
+    <div class="banner info login-banner" hidden>
+      A browser window opened. Log in to the site there (school SSO, Duo, etc.), then click
+      <button class="btn primary login-done" style="margin-left:6px">I'm logged in</button>
+    </div>
+    <div class="banner error" hidden></div>
+    <div class="slots"></div>
+    <details><summary>What the robot sees (latest screenshot)</summary><img alt="Latest screenshot of the portal"></details>`;
+  $(".toggle", el).onclick = async (e) => {
+    e.target.disabled = true;
+    const t = latest.targets.find((x) => x.name === el.dataset.name);
+    await post(`/api/targets/${encodeURIComponent(t.name)}/${t.running ? "stop" : "start"}`);
+    refresh();
+  };
+  $(".check", el).onclick = () => post(`/api/targets/${encodeURIComponent(el.dataset.name)}/check`);
+  $(".login", el).onclick = async (e) => {
+    e.target.disabled = true;
+    const r = await post(`/api/targets/${encodeURIComponent(el.dataset.name)}/login`);
+    if (!r.ok) alert("Couldn't open the login window: " + ((await r.json().catch(() => ({}))).error || r.status));
+    refresh();
+  };
+  $(".login-done", el).onclick = () => post(`/api/targets/${encodeURIComponent(el.dataset.name)}/login-done`).then(refresh);
+  $(".edit", el).onclick = () => openSettings(el.dataset.name);
+  el.dataset.name = t.name;
+  return el;
+}
+
+function renderCard(el, t) {
+  $(".name", el).textContent = t.name;
+  const pill = $(".pill", el);
+  pill.className = "pill " + t.status.replace(/\s+/g, "-");
+  pill.textContent = t.status;
+  const url = $(".url", el);
+  url.href = t.url; url.textContent = t.url;
+
+  const toggle = $(".toggle", el);
+  toggle.disabled = t.status === "starting" && !t.running;
+  toggle.textContent = t.running ? "Stop" : "Start watching";
+  toggle.className = "btn toggle " + (t.running ? "stop" : "primary");
+  $(".check", el).disabled = !t.running;
+  const loggingIn = t.status === "logging in";
+  $(".login", el).disabled = loggingIn;
+  $(".login-banner", el).hidden = !loggingIn;
+  toggle.disabled ||= loggingIn;
+
+  const [mode, cls] = modeOf(t.settings);
+  const open = t.slots.filter((s) => s.available).length;
+  $(".meta", el).innerHTML = `
+    <span class="mode ${cls}">${mode}</span>
+    <span>Every ${t.settings.every_seconds}s</span>
+    <span>Checked ${ago(t.last_poll)}</span>
+    ${t.slots.length ? `<span>${t.slots.length} found · ${open} open</span>` : ""}
+    ${t.booked.length ? `<span>Booked: ${t.booked.length}</span>` : ""}`;
+
+  const banner = $(".banner", el);
+  let msg = t.error;
+  if (t.status === "login needed") msg = "You're not logged in to this site (or your login expired). Click Log in.";
+  banner.hidden = !msg;
+  banner.textContent = msg || "";
+
+  const grid = $(".slots", el);
+  if (!t.slots.length) {
+    grid.innerHTML = `<div class="empty">${t.running ? "Looking…" : "Press Start watching to begin."}</div>`;
+  } else {
+    grid.innerHTML = t.slots.map((s) => {
+      const booked = t.booked.includes(s.id);
+      const cls = booked ? "booked" : s.available ? "open" : "";
+      const label = booked ? "Booked for you" : s.available ? "Open" : "Taken";
+      return `<div class="slot ${cls}" title="${esc(s.status)}"><b>${esc(s.label)}</b><span>${label}</span></div>`;
+    }).join("");
+  }
+
+  const img = $("details img", el);
+  const det = $("details", el);
+  det.hidden = !t.has_shot;
+  if (t.has_shot && img.dataset.poll !== String(t.last_poll)) {
+    img.dataset.poll = String(t.last_poll);
+    img.src = `/api/targets/${encodeURIComponent(t.name)}/screenshot?t=${t.last_poll}`;
+  }
+}
+
+function render(data) {
+  latest = data;
+  const chips = [...data.channels.map((c) => `<span class="chip on">${esc(c)}</span>`),
+    `<span class="chip ${data.vision ? "on" : ""}">vision ${data.vision ? "on" : "off"}</span>`];
+  for (const missing of ["telegram", "discord"]) {
+    if (!data.channels.includes(missing)) chips.push(`<span class="chip" title="Set the env var to enable">${missing} off</span>`);
+  }
+  $("#chips").innerHTML = chips.join(" ");
+
+  const host = $("#targets");
+  if (!cards.size) host.innerHTML = "";
+  if (!data.targets.length) host.innerHTML = `<div class="panel card empty">No targets in config.yaml yet.</div>`;
+  for (const t of data.targets) {
+    if (!cards.has(t.name)) { const c = makeCard(t); cards.set(t.name, c); host.append(c); }
+    renderCard(cards.get(t.name), t);
+  }
+
+  $("#alert-count").textContent = data.alerts.length;
+  $("#alerts-empty").hidden = data.alerts.length > 0;
+  $("#alerts").innerHTML = data.alerts.map((a) => `<li><time>${clock(a.time)}</time>${esc(a.text)}</li>`).join("");
+}
+
+async function refresh() {
+  try { render(await (await fetch("/api/status")).json()); }
+  catch { $("#targets").innerHTML = `<div class="panel card banner error">Can't reach the slotsniper server. Is it still running?</div>`; cards.clear(); }
+}
+
+// ---- settings dialog ----
+const dlg = $("#settings"), form = $("#settings-form");
+let editing = null;
+function syncWarning() {
+  $("#live-warning").hidden = !(form.on_open.value === "book" && !form.dry_run.checked);
+  form.dry_run.disabled = form.max_bookings.disabled = form.on_open.value !== "book";
+}
+form.addEventListener("change", syncWarning);
+function openSettings(name) {
+  const t = latest.targets.find((x) => x.name === name);
+  editing = name;
+  $("#settings-title").textContent = `Settings · ${name}`;
+  const s = t.settings;
+  form.url.value = s.url; form.every_seconds.value = s.every_seconds; form.label_matches.value = s.label_matches;
+  form.on_open.value = s.action; form.dry_run.checked = s.dry_run; form.max_bookings.value = s.max_bookings;
+  $("#form-error").textContent = "";
+  syncWarning();
+  dlg.showModal();
+}
+$("#save").onclick = async (e) => {
+  if (!form.reportValidity()) return;
+  e.preventDefault();
+  const body = { url: form.url.value, every_seconds: Number(form.every_seconds.value), label_matches: form.label_matches.value,
+    action: form.on_open.value, dry_run: form.dry_run.checked, max_bookings: Number(form.max_bookings.value) };
+  const r = await post(`/api/targets/${encodeURIComponent(editing)}/settings`, body);
+  const j = await r.json().catch(() => ({}));
+  if (!r.ok) { $("#form-error").textContent = j.error || "Couldn't save."; return; }
+  dlg.close(); refresh();
+};
+
+$("#test-alert").onclick = () => post("/api/test-alert").then(refresh);
+refresh();
+setInterval(refresh, 1500);
+</script>
+</body>
+</html>

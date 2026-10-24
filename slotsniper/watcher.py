@@ -3,7 +3,9 @@ from __future__ import annotations
 
 import asyncio
 import logging
+import os
 import random
+import time
 
 from playwright.async_api import BrowserContext, Page, Playwright
 
@@ -22,13 +24,20 @@ async def open_context(pw: Playwright, cfg: Config, target: TargetCfg, headless:
     # human logs in once (`slotsniper login`) and the watcher reuses that session.
     # Keep state_dir short on Windows: Chromium aborts if profile paths pass MAX_PATH.
     b = cfg.browser
-    return await pw.chromium.launch_persistent_context(
+    opts = dict(
         user_data_dir=str((b.state_dir / "profiles" / target.name).resolve()),
-        channel=b.channel,
         headless=b.headless if headless is None else headless,
         viewport={"width": b.viewport_width, "height": b.viewport_height},
         timeout=60_000,
     )
+    try:
+        return await pw.chromium.launch_persistent_context(channel=b.channel, **opts)
+    except Exception as e:
+        if not b.channel:
+            raise
+        # e.g. config says msedge but this is a Mac: use Playwright's own Chromium instead.
+        log.warning("couldn't start %s (%s); falling back to bundled Chromium", b.channel, str(e).splitlines()[0])
+        return await pw.chromium.launch_persistent_context(**opts)
 
 
 async def session_expired(page: Page, target: TargetCfg) -> bool:
@@ -45,6 +54,13 @@ class TargetWatcher:
         self.state = State(cfg.browser.state_dir / f"{target.name}.json")
         self.failures = 0
         self.warned: set[str] = set()  # one-shot warnings, so a broken portal doesn't spam your phone
+        # Live view of the last poll, read by the dashboard.
+        self.slots: list[Slot] = []
+        self.last_poll: float | None = None
+        self.last_error: str | None = None
+        self.last_shot: bytes | None = None
+        self.session_expired = False
+        self.wake = asyncio.Event()  # set() to poll now instead of waiting out the delay
 
     async def _warn_once(self, key: str, text: str) -> None:
         if key not in self.warned:
@@ -71,12 +87,15 @@ class TargetWatcher:
 
     async def poll(self, page: Page) -> list[Slot]:
         await page.goto(self.t.url, wait_until="domcontentloaded", timeout=30_000)
-        if await session_expired(page, self.t):
+        self.session_expired = await session_expired(page, self.t)
+        if self.session_expired:
+            self.last_shot, self.last_poll = await page.screenshot(), time.time()
             await self._warn_once("session", f"🔒 Session expired. Run: python -m slotsniper login --target {self.t.name}")
             return []
         self.warned.discard("session")
 
         slots = await self.extract(page)
+        self.slots, self.last_shot, self.last_poll = slots, await page.screenshot(), time.time()
         fresh = self.state.newly_open(slots)
         log.info("[%s] %d slots, %d open, %d newly open", self.t.name, len(slots),
                  sum(s.available for s in slots), len(fresh))
@@ -106,20 +125,28 @@ class TargetWatcher:
         while True:
             try:
                 await self.poll(page)
-                self.failures = 0
+                self.failures, self.last_error = 0, None
             except Exception as e:
                 self.failures += 1
+                self.last_error = str(e).splitlines()[0][:300]
                 log.warning("[%s] poll failed (%d in a row): %s", self.t.name, self.failures, e)
                 if self.failures == 3:
                     await self.notify.send(f"[{self.t.name}] ❌ 3 polls failed in a row; backing off. Last error: {e}")
             if once:
                 return
-            await asyncio.sleep(self.next_delay())
+            try:
+                await asyncio.wait_for(self.wake.wait(), self.next_delay())
+            except TimeoutError:
+                pass
+            self.wake.clear()
 
 
 def make_vlm(cfg: Config) -> VlmExtractor | None:
     needed = any(t.extractor.kind == "vlm" or t.extractor.fallback_to_vlm for t in cfg.targets)
     if not needed:
+        return None
+    if not (os.environ.get("ANTHROPIC_API_KEY") or os.environ.get("ANTHROPIC_AUTH_TOKEN")):
+        log.info("vision fallback off: set ANTHROPIC_API_KEY (e.g. in .env) to enable it")
         return None
     try:
         return VlmExtractor(cfg.vlm)
