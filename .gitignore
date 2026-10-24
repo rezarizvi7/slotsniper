@@ -1,0 +1,11 @@
+# Your local settings and browser sessions (cookies!) — never commit these
+config.yaml
+.state/
+*.log
+*.err
+
+__pycache__/
+*.py[cod]
+.venv/
+venv/
+.env

@@ -1,0 +1,42 @@
+# Copy to config.yaml and edit. Secrets come from env vars, never this file:
+#   TELEGRAM_BOT_TOKEN, TELEGRAM_CHAT_ID, DISCORD_WEBHOOK_URL, ANTHROPIC_API_KEY
+
+browser:
+  channel: msedge        # msedge | chrome | null (bundled Chromium)
+  headless: true
+  state_dir: .state
+
+vlm:
+  model: claude-opus-5-5
+  effort: low            # screenshot reading is easy; keep it fast
+
+targets:
+  # The mock portal in mock_portal/ — run it first to try everything offline.
+  - name: laundry-west
+    url: http://localhost:8765/
+    poll: { every_seconds: 3, jitter_seconds: 1, min_seconds: 2 }   # local only; use >=30s on real portals
+    extractor:
+      kind: dom
+      items: ["css:.machine-row", "role:listitem"]   # first guess is stale on purpose: the class is random
+      label: ["css:span"]
+      fallback_to_vlm: true
+    label_matches: "(?i)washer"
+    action:
+      kind: book
+      dry_run: false
+      max_bookings: 1
+
+  # A real-world style example: a gym slot page behind campus SSO.
+  # - name: gym-slots
+  #   url: https://recreation.example.edu/booking
+  #   poll: { every_seconds: 60, jitter_seconds: 15 }
+  #   session: { expired_if_url_contains: ["/idp/", "login.microsoftonline.com"] }
+  #   extractor:
+  #     kind: dom
+  #     wait_for: "text:(?i)available spots"
+  #     items: ["css:.booking-slot", "role:row"]
+  #     label: ["css:.slot-time", "text"]
+  #     available_if: "(?i)\\b[1-9]\\d* spots? available"
+  #     unavailable_if: "(?i)\\bfull\\b|waitlist"
+  #   label_matches: "(?i)(mon|wed).*(6|7):\\d\\d ?pm"
+  #   action: { kind: notify }
